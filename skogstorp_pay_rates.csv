@@ -1,0 +1,11 @@
+Category,Time Period,Rate (SEK),Unit,Note
+Base Salary (Min),Monthly,23638,SEK/mo,For age 19+ (effective Jan 2026)
+Base Salary (Gymnasium),Monthly,25798,SEK/mo,Vocational high school degree
+Lägerersättning (Camp),Per 24h,284,SEK/day,Standard daily allowance (est.)
+Lägerersättning (Holiday),Per 24h,568,SEK/day,Double rate for red days/weekends
+OB A (Storhelg),Holidays,131.30,SEK/hr,Midsummer/Red days
+OB B (Weekend/Night),Fri 17:00-Mon 07:00,74.50,SEK/hr,Includes 3% 2026 hike
+OB B (Night Bonus),Night 22:00-06:00,96.85,SEK/hr,New 2026 +30% bonus for weekend nights
+OB B (Evening),Weekday 19:00-22:00,32.40,SEK/hr,Standard evening rate
+Simple Overtime,Weekday,Monthly/94,SEK/hr,Beordrad övertid (approx 1.06%)
+Qualified Overtime,Weekend/Night,Monthly/72,SEK/hr,Beordrad övertid (approx 1.39%)

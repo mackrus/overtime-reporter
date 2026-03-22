@@ -1,0 +1,14 @@
+# Rust
+wasm-crate/target/
+wasm-crate/pkg/
+
+# Node
+node_modules/
+www/dist/
+www/src/pkg/*.js
+www/src/pkg/*.wasm
+www/src/pkg/*.d.ts
+
+# Misc
+.DS_Store
+.env
