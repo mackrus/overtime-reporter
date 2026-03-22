@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use std::collections::HashMap;
 use chrono::{NaiveDate, Datelike, Duration as ChronoDuration, Weekday};
 use console_error_panic_hook;
-// Removed: use std::cell::RefCell; // Removed RefCell
+use std::cell::RefCell;
 
 #[wasm_bindgen]
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -43,7 +43,7 @@ impl OvertimeEntry {
 
 #[wasm_bindgen]
 pub struct AppState {
-    entries: Vec<OvertimeEntry>, // Reverted to Vec
+    entries: RefCell<Vec<OvertimeEntry>>,
 }
 
 #[wasm_bindgen]
@@ -51,22 +51,18 @@ impl AppState {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         console_error_panic_hook::set_once();
-        AppState { entries: Vec::new() } // Reverted
+        AppState { entries: RefCell::new(Vec::new()) }
     }
 
-    // Reverted to &mut self
-    pub fn add_entry(&mut self, date: String, hours: f64, category: Category, description: String) {
-        self.entries.push(OvertimeEntry { date, hours, category, description });
+    pub fn add_entry(&self, date: String, hours: f64, category: Category, description: String) -> String {
+        {
+            self.entries.borrow_mut().push(OvertimeEntry { date, hours, category, description });
+        }
+        self.get_entries_json()
     }
 
-    // Reverted to &mut self, and original body structure
-    pub fn add_smart_shift(&mut self, date: String, start_time: String, end_time: String, holidays_json: &str, description: String) { // description added back
-        web_sys::console::log_1(&format!("Received holidays_json: {}", holidays_json).into());
-
-        let holidays: HashMap<String, String> = serde_json::from_str(holidays_json)
-            .unwrap_or_else(|_e| { // Changed to _e as we don't use it now
-                HashMap::new()
-            });
+    pub fn add_smart_shift(&self, date: String, start_time: String, end_time: String, holidays_json: &str, description: String) -> String {
+        let holidays: HashMap<String, String> = serde_json::from_str(holidays_json).unwrap_or_default();
         
         let start_decimal = self.time_to_decimal(&start_time);
         let mut end_decimal = self.time_to_decimal(&end_time);
@@ -75,6 +71,7 @@ impl AppState {
             end_decimal += 24.0;
         }
 
+        let mut new_entries_collected = Vec::new();
         let mut current = start_decimal;
         while current < end_decimal {
             let days_offset = (current / 24.0).floor() as i64;
@@ -96,11 +93,22 @@ impl AppState {
             let duration = chunk_end - current;
 
             if duration > 0.0 {
-                self.entries.push(OvertimeEntry { date: current_date_str, hours: duration, category, description: description.clone() });
+                new_entries_collected.push(OvertimeEntry { 
+                    date: current_date_str, 
+                    hours: duration, 
+                    category, 
+                    description: description.clone() 
+                });
             }
             
             current = f64::max(chunk_end, current + 0.001);
         }
+
+        {
+            self.entries.borrow_mut().extend(new_entries_collected);
+        }
+
+        self.get_entries_json()
     }
 
     fn increment_date(&self, date_str: &str, days: i64) -> String {
@@ -148,58 +156,22 @@ impl AppState {
         }
     }
 
-    // Reverted to &mut self
-    pub fn remove_entry(&mut self, index: usize) {
-        if index < self.entries.len() {
-            self.entries.remove(index);
+    pub fn remove_entry(&self, index: usize) -> String {
+        let mut entries = self.entries.borrow_mut();
+        if index < entries.len() {
+            entries.remove(index);
         }
+        drop(entries);
+        self.get_entries_json()
     }
 
-    // Reverted to &mut self
-    pub fn clear_entries(&mut self) {
-        self.entries.clear();
+    pub fn clear_entries(&self) -> String {
+        self.entries.borrow_mut().clear();
+        self.get_entries_json()
     }
 
-    // Reverted to JsValue return type
-    pub fn get_entries_json(&self) -> JsValue {
-        serde_wasm_bindgen::to_value(&self.entries).unwrap()
-    }
-
-    pub fn calculate_estimate(&self, monthly_salary: f64) -> String {
-        let simple_rate = monthly_salary / 94.0;
-        let qualified_rate = monthly_salary / 72.0;
-
-        let mut total_simple_hours = 0.0;
-        let mut total_qualified_hours = 0.0;
-
-        for entry in self.entries.iter() {
-            match entry.category {
-                Category::Normal | Category::Evening => {
-                    total_simple_hours += entry.hours;
-                },
-                Category::Night | Category::Weekend | Category::PublicHoliday => {
-                    total_qualified_hours += entry.hours;
-                }
-            }
-        }
-
-        let simple_sek = total_simple_hours * simple_rate;
-        let qualified_sek = total_qualified_hours * qualified_rate;
-        let total_gross = simple_sek + qualified_sek;
-        let vacation_pay = total_gross * 0.12;
-        let grand_total = total_gross + vacation_pay;
-
-        let estimate = serde_json::json!({
-            "simple_hours": total_simple_hours,
-            "qualified_hours": total_qualified_hours,
-            "simple_sek": simple_sek,
-            "qualified_sek": qualified_sek,
-            "total_gross": total_gross,
-            "vacation_pay": vacation_pay,
-            "grand_total": grand_total
-        });
-
-        estimate.to_string()
+    pub fn get_entries_json(&self) -> String {
+        serde_json::to_string(&*self.entries.borrow()).unwrap_or_else(|_| "[]".to_string())
     }
 
     pub fn generate_csv(&self, lang: &str, holidays_json: &str, monthly_salary: f64) -> String {
@@ -215,9 +187,7 @@ impl AppState {
         };
 
         let mut csv = String::from(header);
-        let mut total_sek = 0.0;
-
-        for entry in self.entries.iter() { // Iterate over self.entries directly
+        for entry in self.entries.borrow().iter() {
             let mut category_str = match entry.category {
                 Category::Normal => if is_sv { "Normal" } else { "Normal" }.to_string(),
                 Category::Evening => if is_sv { "Kväll" } else { "Evening" }.to_string(),
@@ -234,28 +204,13 @@ impl AppState {
                 Category::Normal | Category::Evening => entry.hours * simple_rate,
                 Category::Night | Category::Weekend | Category::PublicHoliday => entry.hours * qualified_rate,
             };
-            total_sek += entry_sek;
 
-            let escaped_description = entry.description.replace("\"", "\"\""); // Escape quotes for CSV
+            let escaped_description = entry.description.replace("\"", "\"\"");
             csv.push_str(&entry.date);
-            csv.push_str(&format!(",{:.2},", entry.hours)); // Use format! for float formatting
+            csv.push_str(&format!(",{:.2},", entry.hours));
             csv.push_str(&category_str);
             csv.push_str(&format!(",\"{}\",{:.2}\n", escaped_description, entry_sek));
         }
-
-        let vacation = total_sek * 0.12;
-        let grand_total = total_sek + vacation;
-
-        if is_sv {
-            csv.push_str(&format!(",,,Bruttosumma:,{:.2}\n", total_sek));
-            csv.push_str(&format!(",,,Semesterersättning (12%):,{:.2}\n", vacation));
-            csv.push_str(&format!(",,,Totalsumma:,{:.2}\n", grand_total));
-        } else {
-            csv.push_str(&format!(",,,Total Gross:,{:.2}\n", total_sek));
-            csv.push_str(&format!(",,,Vacation Pay (12%):,{:.2}\n", vacation));
-            csv.push_str(&format!(",,,Grand Total:,{:.2}\n", grand_total));
-        }
-
         csv
     }
 }

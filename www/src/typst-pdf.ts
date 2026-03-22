@@ -4,10 +4,9 @@ let compiler: any = null;
 let compilerInitPromise: Promise<void> | null = null;
 let isCompilerReady = false;
 
-// We need a font for Typst to work in the browser. 
-// Using standard CDN links for Roboto that are more likely to stay active
-const FONT_URL = 'https://cdnjs.cloudflare.com/ajax/libs/roboto-font/0.1.0/fonts/Roboto/roboto-regular-webfont.ttf';
-const FONT_BOLD_URL = 'https://cdnjs.cloudflare.com/ajax/libs/roboto-font/0.1.0/fonts/Roboto/roboto-bold-webfont.ttf';
+// Using standard CDN links for Roboto that are verified working
+const FONT_URL = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Regular.ttf';
+const FONT_BOLD_URL = 'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/roboto/static/Roboto-Bold.ttf';
 
 export async function initTypst() {
   if (isCompilerReady) return;
@@ -74,81 +73,92 @@ export async function generateTypstPDF(data: ReportData): Promise<Uint8Array> {
 #set document(title: "${t.reportTitle}")
 #set page(
   paper: "a4",
-  margin: (x: 2.5cm, y: 3cm),
+  margin: (x: 2cm, y: 2.5cm),
+  header: align(right)[
+    #text(8pt, fill: luma(120))[${t.generatedAt} ${reportDate}]
+  ],
   footer: locate(loc => {
     let page_number = counter(page).at(loc).first()
-    align(center)[#text(9pt)[#page_number]]
+    let total_pages = counter(page).final(loc).first()
+    grid(
+      columns: (1fr, 1fr),
+      align(left)[#text(8pt, fill: luma(120))[${t.footer}]],
+      align(right)[#text(8pt, fill: luma(120))[Sida #page_number av #total_pages]]
+    )
   })
 )
-#set text(font: "Roboto", size: 11pt)
+#set text(font: "Roboto", size: 10pt, fill: luma(40))
 
 #align(center)[
-  #text(18pt, weight: "bold")[${t.reportTitle.toUpperCase()}] \\
-  #v(0.2cm)
-  #text(10pt, style: "italic")[${t.generatedAt} ${reportDate}]
+  #text(22pt, weight: "bold", fill: black)[${t.reportTitle.toUpperCase()}] \
+  #v(0.1cm)
+  #line(length: 20%, stroke: 2pt + black)
 ]
 
 #v(1cm)
 
 #grid(
   columns: (1fr, 1fr),
-  [*${salaryLabel}:* ${monthlySalary / 2} SEK],
-  align(right)[*Ref:* ${refDate}]
+  stack(spacing: 0.5cm,
+    [#text(size: 9pt, weight: "bold", fill: luma(100))[UPPGIFTER]],
+    [*${salaryLabel}:* ${monthlySalary / 2} SEK],
+    [*Anställningsform:* Timavlönad / Övertid]
+  ),
+  align(right)[
+    #stack(spacing: 0.5cm,
+      [#text(size: 9pt, weight: "bold", fill: luma(100))[REFERENS]],
+      [*Datum:* ${refDate}],
+      [*Status:* Utkast]
+    )
+  ]
 )
 
-#v(0.8cm)
+#v(1cm)
 
-#line(length: 100%, stroke: 1pt)
-#v(-0.2cm)
-#table(
-  columns: (auto, auto, auto, 1fr, auto),
-  align: (left, right, left, left, right),
-  stroke: none,
-  inset: 8pt,
-  [*${t.date}*], [*${t.hours}*], [*${t.category}*], [*${t.description}*], [*SEK*],
-)
-#v(-0.4cm)
 #line(length: 100%, stroke: 0.5pt)
-#v(-0.2cm)
 #table(
   columns: (auto, auto, auto, 1fr, auto),
   align: (left, right, left, left, right),
   stroke: none,
-  inset: 8pt,
-  ${tableRows},
+  inset: 10pt,
+  [*${t.date}*], [*${t.hours}*], [*${t.category}*], [*${t.description}*], [*SEK*],
+  ${tableRows}
 )
-#v(-0.4cm)
-#line(length: 100%, stroke: 1pt)
+#line(length: 100%, stroke: 0.5pt)
 
 #v(0.5cm)
 
-#align(right)[
-  #block(width: 60%)[
-    #set align(left)
-    #table(
-      columns: (1fr, auto),
-      align: (left, right),
-      stroke: none,
-      inset: 4pt,
-      [${lang === 'sv' ? 'Bruttosumma:' : 'Total Gross:'}], [${financialEstimate.total_gross.toFixed(2)} kr],
-      [${lang === 'sv' ? 'Semesterersättning (12%):' : 'Vacation Pay (12%):'}], [${financialEstimate.vacation_pay.toFixed(2)} kr],
+#grid(
+  columns: (1.5fr, 1fr),
+  [],
+  block(
+    width: 100%,
+    fill: luma(250),
+    inset: 15pt,
+    radius: 4pt,
+    stack(spacing: 0.3cm,
+      grid(columns: (1fr, auto), [Bruttosumma:], [${financialEstimate.total_gross.toFixed(2)} kr]),
+      grid(columns: (1fr, auto), [Semesterers. (12%):], [${financialEstimate.vacation_pay.toFixed(2)} kr]),
+      line(length: 100%, stroke: 0.5pt + luma(200)),
+      text(weight: "bold", fill: black, grid(columns: (1fr, auto), [TOTALT ATT BETALA:], [${financialEstimate.grand_total.toFixed(2)} kr]))
     )
-    #v(-0.2cm)
-    #line(length: 100%, stroke: 0.5pt)
-    #v(-0.2cm)
-    #table(
-      columns: (1fr, auto),
-      align: (left, right),
-      stroke: none,
-      inset: 4pt,
-      [*${lang === 'sv' ? 'Totalsumma:' : 'Grand Total:'}*], [**${financialEstimate.grand_total.toFixed(2)} kr**],
-    )
-  ]
-]
+  )
+)
 
 #v(2cm)
-#line(length: 30%, stroke: 0.5pt)
-#text(8pt, style: "italic")["${t.footer}"]
+
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 2cm,
+  stack(spacing: 0.2cm,
+    line(length: 100%, stroke: 0.5pt),
+    text(8pt, fill: luma(100))[Signatur anställd]
+  ),
+  stack(spacing: 0.2cm,
+    line(length: 100%, stroke: 0.5pt),
+    text(8pt, fill: luma(100))[Signatur arbetsledare]
+  )
+)
   `;
 
   console.log("Compiling Typst Document...");

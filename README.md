@@ -1,49 +1,43 @@
-# Overtime Reporter
+# Övertid (Overtime Tracker)
 
-A simple tool to report overtime categories (Weekend, Public Holiday, etc.) with CSV and PDF export.
-Built with **Rust (WASM)** for core logic and **React (Vite/TypeScript)** for the UI.
+Ett professionellt verktyg för att beräkna och rapportera övertid enligt SKR:s regler. Systemet är byggt som en modern webbapplikation som körs helt lokalt i din webbläsare med hjälp av Rust (WebAssembly) och Typst.
 
-## Features
-- Multiple overtime entries in one session.
-- Automatic CSV export for supervisors.
-- Professional PDF export for employees.
-- Data persistence using browser `localStorage`.
-- Deployment to GitHub Pages via GitHub Actions.
+## Funktioner
+- **Smart läge**: Ange start- och sluttid, appen delar automatiskt upp skiftet i Normal, Kväll och Natt samt detekterar helger och röda dagar.
+- **Manuellt läge**: Full kontroll för att lägga till poster manuellt vid behov.
+- **Automatisk detektering av helgdagar**: Innehåller svenska helgdagar 2026–2040.
+- **Ekonomisk kalkyl**: Beräknar uppskattad ersättning baserat på din periodersättning (Vardagsövertid /94, Kvalificerad övertid /72).
+- **Professionella exporter**:
+  - **PDF**: Typsatt med Typst för ett officiellt utseende (likt ett formellt kvitto/faktura).
+  - **CSV**: För enkel import i Excel eller lönesystem.
+- **E-postintegration**: Förbereder ett mejl till löneadministratör med ett klick.
 
-## Prerequisites
-- [Rust](https://rustup.rs/) (with `wasm32-unknown-unknown` target)
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/)
-- [Node.js](https://nodejs.org/) (npm)
+## Teknisk arkitektur
+- **Backend**: Rust (WASM) för beräkningslogik och skiftuppdelning.
+- **Frontend**: React + Vite + TypeScript.
+- **Typsättning**: Typst (WASM) för högkvalitativ PDF-generering.
+- **Säkerhet**: Ingen data sparas i molnet. Allt körs lokalt och sparas endast i din webbläsares `localStorage`.
 
-## Local Development
+## Lokal utveckling
 
-### 1. Build the Rust WASM module
-Whenever you change the Rust code in `wasm-crate/src/`, rebuild the module:
+### 1. Bygg Rust-modulen
+Du behöver ha `wasm-pack` installerat.
 ```bash
 cd wasm-crate
 wasm-pack build --target web
 cd ..
-# Copy the generated files to the frontend (automatically done in dev if set up, but manually for now)
-mkdir -p www/src/pkg
+# Synka binärer till frontend
 cp wasm-crate/pkg/*.js www/src/pkg/
 cp wasm-crate/pkg/*.wasm www/src/pkg/
 cp wasm-crate/pkg/*.d.ts www/src/pkg/
 ```
 
-### 2. Start the React frontend
+### 2. Starta webbappen
 ```bash
 cd www
-npm install --legacy-peer-deps
+npm install
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-## Deployment to GitHub Pages
-This project is configured to deploy automatically when you push to the `main` branch.
-1. Push your code to a GitHub repository.
-2. In GitHub, go to **Settings > Pages**.
-3. Under **Build and deployment > Source**, select **GitHub Actions**.
-4. The workflow in `.github/workflows/deploy.yml` will handle the rest.
-
-## Customization
-Overtime categories are defined in `wasm-crate/src/lib.rs`. You can add more categories there and update the corresponding switch cases in `www/src/App.tsx`.
+## Driftsättning
+Projektet är konfigurerat för automatisk driftsättning till **GitHub Pages** via GitHub Actions. Varje push till `main`-branchen triggar en ny byggprocess och publicering.
