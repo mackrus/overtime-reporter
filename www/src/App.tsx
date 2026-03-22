@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import init, { AppState, Category } from './pkg/wasm_crate';
-import { jsPDF } from 'jspdf';
-import { Trash2, Plus, Download, FileText, Zap, List, Globe, CalendarCheck, Send, HelpCircle } from 'lucide-react';
+import { generateTypstPDF } from './typst-pdf';
+import { Trash2, Plus, Download, FileText, Zap, List, Globe, CalendarCheck, Send, HelpCircle, Loader2 } from 'lucide-react';
 import holidaysData from './pkg/holidays.json';
 
 interface Entry {
@@ -57,6 +57,16 @@ Mvh,
       <p><strong>Manuellt läge:</strong> Fyll in totala timmar och välj kategori själv. Använd detta för specialfall eller om du vill åsidosätta automatiken.</p>
       <p><strong>Rapporter:</strong> När du är klar kan du exportera som CSV/PDF eller klicka på "Skicka Rapport" för att öppna ett färdigt mejl (du måste bifoga filerna manuellt).</p>
     `,
+    calcLogicTitle: 'Hur ersättningen beräknas',
+    calcLogicContent: `
+      <p>Beräkningarna baseras på din angivna <strong>Periodersättning</strong> (motsvarande 50% av en månadslön).</p>
+      <ul>
+        <li><strong>Vardagsövertid:</strong> [Månadslön] / 94. Gäller för kategorierna Normal och Kväll.</li>
+        <li><strong>Kvalificerad övertid:</strong> [Månadslön] / 72. Gäller för Natt, Helg och Storhelg.</li>
+        <li><strong>Semesterersättning:</strong> +12% läggs på den totala bruttosumman.</li>
+      </ul>
+      <p><em>Smart uppdelning:</em> Normal (06-17), Kväll (17-21), Natt (21-06). Helger och röda dagar räknas alltid som Kvalificerad övertid.</p>
+    `,
     categories: {
       Normal: 'Normal',
       Evening: 'Kväll',
@@ -105,6 +115,16 @@ Regards,
       <p><strong>Smart Mode:</strong> Enter a start and end time. The app will automatically split the shift into the correct categories (Normal, Evening, Night) and detect weekends and public holidays.</p>
       <p><strong>Manual Mode:</strong> Enter the total hours and choose the category yourself. Use this for special cases or to override the automatic logic.</p>
       <p><strong>Reports:</strong> When you're done, you can export as CSV/PDF or click "Send Report" to open a pre-filled email (you must attach the files manually).</p>
+    `,
+    calcLogicTitle: 'How compensation is calculated',
+    calcLogicContent: `
+      <p>Calculations are based on your provided <strong>Period Compensation</strong> (equal to 50% of a monthly salary).</p>
+      <ul>
+        <li><strong>Simple Overtime:</strong> [Monthly Salary] / 94. Applied to Normal and Evening categories.</li>
+        <li><strong>Qualified Overtime:</strong> [Monthly Salary] / 72. Applied to Night, Weekend, and Public Holidays.</li>
+        <li><strong>Vacation Pay:</strong> +12% added to the total gross amount.</li>
+      </ul>
+      <p><em>Smart Splitting:</em> Normal (06-17), Evening (17-21), Night (21-06). Weekends and holidays are always counted as Qualified Overtime.</p>
     `,
     categories: {
       Normal: 'Normal',
@@ -254,6 +274,8 @@ export default function App() {
     localStorage.removeItem('overtime_entries'); // Clear all localStorage too
   };
 
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
   const exportCSV = () => {
     if (!appState) return;
     const monthlySalary = periodCompensation * 2;
@@ -267,87 +289,40 @@ export default function App() {
     window.URL.revokeObjectURL(url);
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text(t.reportTitle, 10, 20);
-    doc.setFontSize(12);
-    doc.text(`${t.generatedAt} ${new Date().toLocaleString(lang === 'sv' ? 'sv-SE' : 'en-US')}`, 10, 30);
+  const exportPDF = async () => {
+    if (!appState || entries.length === 0) return;
+    setIsGeneratingPDF(true);
     
-    doc.setFontSize(10);
-    doc.text(lang === 'sv' ? `Periodersättning: ${periodCompensation} SEK` : `Period Compensation: ${periodCompensation} SEK`, 10, 38);
-
-    let y = 50;
-    doc.setFont('helvetica', 'bold');
-    doc.text(t.date, 10, y);
-    doc.text(t.hours, 40, y);
-    doc.text(t.category, 60, y);
-    doc.text(t.description, 115, y);
-    doc.text('SEK', 180, y);
-    doc.line(10, y + 2, 200, y + 2);
-
-    y += 10;
-    doc.setFont('helvetica', 'normal');
-    
-    let totalSek = 0;
-    const monthlySalary = periodCompensation * 2;
-    const simpleRate = monthlySalary / 94.0;
-    const qualifiedRate = monthlySalary / 72.0;
-
-    entries.forEach(e => {
-      if (y > 250) {
-        doc.addPage();
-        y = 20;
-      }
+    try {
+      const financialEstimate = JSON.parse(appState.calculate_estimate(periodCompensation * 2));
       
-      let entrySek = 0;
-      if (e.category === 'Normal' || e.category === 'Evening' || e.category === 'Kväll') {
-          entrySek = e.hours * simpleRate;
-      } else {
-          entrySek = e.hours * qualifiedRate;
-      }
-      totalSek += entrySek;
+      const pdfBytes = await generateTypstPDF({
+        entries,
+        lang,
+        getCategoryDisplay,
+        monthlySalary: periodCompensation * 2,
+        financialEstimate,
+        translations: t
+      });
 
-      doc.text(e.date, 10, y);
-      doc.text(e.hours.toFixed(2), 40, y);
-      doc.text(getCategoryDisplay(e.category, e.date), 60, y);
-      doc.text(e.description || '-', 115, y);
-      doc.text(entrySek.toFixed(2), 180, y);
-      y += 8;
-    });
-
-    const vacation = totalSek * 0.12;
-    const grandTotal = totalSek + vacation;
-
-    y += 10;
-    doc.setFont('helvetica', 'bold');
-    doc.line(10, y - 6, 200, y - 6);
-    if (lang === 'sv') {
-      doc.text('Bruttosumma:', 130, y);
-      doc.text(totalSek.toFixed(2), 180, y);
-      y += 8;
-      doc.text('Semesterersättning (12%):', 130, y);
-      doc.text(vacation.toFixed(2), 180, y);
-      y += 8;
-      doc.text('Totalsumma:', 130, y);
-      doc.text(grandTotal.toFixed(2), 180, y);
-    } else {
-      doc.text('Total Gross:', 130, y);
-      doc.text(totalSek.toFixed(2), 180, y);
-      y += 8;
-      doc.text('Vacation Pay (12%):', 130, y);
-      doc.text(vacation.toFixed(2), 180, y);
-      y += 8;
-      doc.text('Grand Total:', 130, y);
-      doc.text(grandTotal.toFixed(2), 180, y);
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `overtime_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to generate PDF:", error);
+      alert("Ett fel uppstod vid skapandet av PDF:en. Kontrollera konsolen.");
+    } finally {
+      setIsGeneratingPDF(false);
     }
-
-    doc.save(`overtime_report_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  const handleSendReport = () => {
+  const handleSendReport = async () => {
     exportCSV();
-    exportPDF();
+    await exportPDF();
     const subject = encodeURIComponent("Övertidsrapport");
     const body = encodeURIComponent(t.sendReportBody);
     window.location.href = `mailto:skogstorp.overtid@stockholm.se?subject=${subject}&body=${body}`;
@@ -523,7 +498,29 @@ export default function App() {
             {/* Financial Summary */}
             {appState && (
               <div style={{ marginTop: 20, padding: 15, background: '#2a2a2a', borderRadius: 8, fontSize: '0.9rem', color: '#eee' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#fff' }}>Estimerad Ersättning (SEK)</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#fff' }}>Estimerad Ersättning (SEK)</h3>
+                  <details style={{ position: 'relative' }}>
+                    <summary style={{ listStyle: 'none', cursor: 'pointer', color: '#888', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}>
+                      <HelpCircle size={14} style={{ marginRight: 4 }} /> {t.calcLogicTitle}
+                    </summary>
+                    <div style={{ 
+                      position: 'absolute', 
+                      right: 0, 
+                      top: '100%', 
+                      background: '#333', 
+                      border: '1px solid #444', 
+                      borderRadius: 8, 
+                      padding: '12px', 
+                      zIndex: 10, 
+                      width: 280, 
+                      color: '#ccc',
+                      fontSize: '0.8rem',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                      marginTop: 8
+                    }} dangerouslySetInnerHTML={{ __html: t.calcLogicContent }} />
+                  </details>
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                    <span>Vardagsövertid ({JSON.parse(appState.calculate_estimate(periodCompensation * 2)).simple_hours}h):</span>
                    <span>{JSON.parse(appState.calculate_estimate(periodCompensation * 2)).simple_sek.toFixed(2)} kr</span>
@@ -554,11 +551,13 @@ export default function App() {
             <button onClick={exportCSV} style={{...styles.exportButton, background: '#333'}}>
               <Download size={18} style={{ marginRight: 8 }} /> {t.exportCSV}
             </button>
-            <button onClick={exportPDF} style={{...styles.exportButton, background: '#333'}}>
-              <FileText size={18} style={{ marginRight: 8 }} /> {t.exportPDF}
+            <button onClick={exportPDF} disabled={isGeneratingPDF} style={{...styles.exportButton, background: '#333', opacity: isGeneratingPDF ? 0.7 : 1}}>
+              {isGeneratingPDF ? <Loader2 size={18} className="animate-spin" style={{ marginRight: 8 }} /> : <FileText size={18} style={{ marginRight: 8 }} />} 
+              {isGeneratingPDF ? (lang === 'sv' ? 'Skapar PDF...' : 'Generating PDF...') : t.exportPDF}
             </button>
-            <button onClick={handleSendReport} style={{...styles.exportButton, background: '#10b981', gridColumn: '1 / -1'}}>
-              <Send size={18} style={{ marginRight: 8 }} /> {t.sendReport}
+            <button onClick={handleSendReport} disabled={isGeneratingPDF} style={{...styles.exportButton, background: '#10b981', gridColumn: '1 / -1', opacity: isGeneratingPDF ? 0.7 : 1}}>
+              {isGeneratingPDF ? <Loader2 size={18} className="animate-spin" style={{ marginRight: 8 }} /> : <Send size={18} style={{ marginRight: 8 }} />}
+              {t.sendReport}
             </button>
           </div>
         )}
