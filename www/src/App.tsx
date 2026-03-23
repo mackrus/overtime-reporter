@@ -49,6 +49,7 @@ Mvh,
     reportTitle: 'Övertidsrapport',
     generatedAt: 'Skapad:',
     footer: '© 2026 Övertid',
+    privacy: 'Integritet först: Din data stannar i din webbläsare. Ingen spårning, inga kakor, ingen molnlagring.',
     holidayDetected: 'Röd dag detekterad:',
     normalDay: 'Vanlig arbetsdag',
     instructionsTitle: 'Instruktioner',
@@ -108,6 +109,7 @@ Regards,
     reportTitle: 'Overtime Report',
     generatedAt: 'Generated on:',
     footer: '© 2026 Overtime',
+    privacy: 'Privacy First: Your data stays in your browser. No tracking, no cookies, no cloud storage.',
     holidayDetected: 'Public holiday detected:',
     normalDay: 'Regular workday',
     instructionsTitle: 'Instructions',
@@ -566,6 +568,7 @@ export default function App() {
       </div>
       
       <footer style={styles.footer}>
+        <p style={{ marginBottom: 8, color: '#666' }}>{t.privacy}</p>
         <p>{t.footer}</p>
       </footer>
     </div>
