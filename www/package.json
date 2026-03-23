@@ -16,9 +16,9 @@
     "vite": "^6.0.0"
   },
   "dependencies": {
-    "@myriaddreamin/typst-ts-web-compiler": "^0.4.1",
-    "@myriaddreamin/typst.react": "^0.4.1",
-    "@myriaddreamin/typst.ts": "^0.4.1",
+    "@myriaddreamin/typst-ts-web-compiler": "^0.7.0-rc2",
+    "@myriaddreamin/typst.react": "^0.7.0-rc2",
+    "@myriaddreamin/typst.ts": "^0.7.0-rc2",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

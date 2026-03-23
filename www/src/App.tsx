@@ -276,6 +276,8 @@ export default function App() {
 
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
+  const estimate = appState ? appState.get_estimate(periodCompensation * 2) : null;
+
   const exportCSV = () => {
     if (!appState) return;
     const monthlySalary = periodCompensation * 2;
@@ -290,11 +292,11 @@ export default function App() {
   };
 
   const exportPDF = async () => {
-    if (!appState || entries.length === 0) return;
+    if (!appState || entries.length === 0 || !estimate) return;
     setIsGeneratingPDF(true);
     
     try {
-      const financialEstimate = JSON.parse(appState.calculate_estimate(periodCompensation * 2));
+      const financialEstimate = estimate;
       
       const pdfBytes = await generateTypstPDF({
         entries,
@@ -496,7 +498,7 @@ export default function App() {
             </table>
             
             {/* Financial Summary */}
-            {appState && (
+            {appState && estimate && (
               <div style={{ marginTop: 20, padding: 15, background: '#2a2a2a', borderRadius: 8, fontSize: '0.9rem', color: '#eee' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                   <h3 style={{ margin: 0, fontSize: '1rem', color: '#fff' }}>Estimerad Ersättning (SEK)</h3>
@@ -522,24 +524,24 @@ export default function App() {
                   </details>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                   <span>Vardagsövertid ({JSON.parse(appState.calculate_estimate(periodCompensation * 2)).simple_hours}h):</span>
-                   <span>{JSON.parse(appState.calculate_estimate(periodCompensation * 2)).simple_sek.toFixed(2)} kr</span>
+                   <span>Vardagsövertid ({estimate.simple_hours}h):</span>
+                   <span>{estimate.simple_sek.toFixed(2)} kr</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                   <span>Kvalificerad övertid ({JSON.parse(appState.calculate_estimate(periodCompensation * 2)).qualified_hours}h):</span>
-                   <span>{JSON.parse(appState.calculate_estimate(periodCompensation * 2)).qualified_sek.toFixed(2)} kr</span>
+                   <span>Kvalificerad övertid ({estimate.qualified_hours}h):</span>
+                   <span>{estimate.qualified_sek.toFixed(2)} kr</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, borderTop: '1px solid #444', paddingTop: 4 }}>
                    <span>Bruttosumma:</span>
-                   <span>{JSON.parse(appState.calculate_estimate(periodCompensation * 2)).total_gross.toFixed(2)} kr</span>
+                   <span>{estimate.total_gross.toFixed(2)} kr</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                    <span>Semesterersättning (12%):</span>
-                   <span>{JSON.parse(appState.calculate_estimate(periodCompensation * 2)).vacation_pay.toFixed(2)} kr</span>
+                   <span>{estimate.vacation_pay.toFixed(2)} kr</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#10b981', borderTop: '1px solid #444', paddingTop: 4, marginTop: 4 }}>
                    <span>Totalt:</span>
-                   <span>{JSON.parse(appState.calculate_estimate(periodCompensation * 2)).grand_total.toFixed(2)} kr</span>
+                   <span>{estimate.grand_total.toFixed(2)} kr</span>
                 </div>
               </div>
             )}
