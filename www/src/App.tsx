@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import init, { AppState, Category } from './pkg/wasm_crate';
 import { generateTypstPDF } from './typst-pdf';
 import { Trash2, Plus, Download, FileText, Zap, List, Globe, CalendarCheck, Send, HelpCircle, Loader2 } from 'lucide-react';
