@@ -1,5 +1,7 @@
 # Overtime Reporter
 
+**Live Website:** [https://mackrus.github.io/overtime-reporter/](https://mackrus.github.io/overtime-reporter/)
+
 A simple tool to report overtime categories (Weekend, Public Holiday, etc.) with CSV and PDF export.
 Built with **Rust (WASM)** for core logic and **React (Vite/TypeScript)** for the UI.
 
